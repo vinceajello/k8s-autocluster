@@ -1,5 +1,9 @@
 #!/bin/bash
 
+source $(dirname $0)/bash_utils/upload.sh
+source $(dirname $0)/bash_utils/execute.sh
+source $(dirname $0)/bash_utils/tunnel.sh
+
 echo
 echo "::: K8s Autocluster ::: 0.1 :::"
 
@@ -68,25 +72,24 @@ fi
 ###
 echo
 echo "Uploading scripts on master node ($MASTER_NODE_IP)..."
-scp -o "StrictHostKeyChecking=no" -i $SSH_KEY 0-master-create-user.sh $REMOTE_USER@$MASTER_NODE_IP:/home/$REMOTE_USER/
-scp -o "StrictHostKeyChecking=no" -i $SSH_KEY 1-master-install-k8s.sh $REMOTE_USER@$MASTER_NODE_IP:/home/$REMOTE_USER/
-scp -o "StrictHostKeyChecking=no" -i $SSH_KEY 2-master-config-k8s.sh $REMOTE_USER@$MASTER_NODE_IP:/home/$REMOTE_USER/
-scp -o "StrictHostKeyChecking=no" -i $SSH_KEY 3-master-get-install-link.sh $REMOTE_USER@$MASTER_NODE_IP:/home/$REMOTE_USER/
+upload_file master 0-master-create-user.sh 91.134.105.195 22 ubuntu ./keys/id_rsa 
+upload_file master 1-master-install-k8s.sh 91.134.105.195 22 ubuntu ./keys/id_rsa 
+upload_file master 2-master-config-k8s.sh 91.134.105.195 22 ubuntu ./keys/id_rsa 
+upload_file master 3-master-get-install-link.sh 91.134.105.195 22 ubuntu ./keys/id_rsa 
 echo "Scripts uploading done"; echo
 ###
 ###
 echo "Executing uploaded scripts on master node ($MASTER_NODE_IP)..."
-ssh -o "StrictHostKeyChecking=no" -t $REMOTE_USER@$MASTER_NODE_IP -i $SSH_KEY ./0-create-user.sh
-ssh -o "StrictHostKeyChecking=no" -t $REMOTE_USER@$MASTER_NODE_IP -i $SSH_KEY sudo ./1-master-install-k8s.sh $POD_NETWORK_CIDR $KUBERNETES_VERSION
-ssh -o "StrictHostKeyChecking=no" -t $REMOTE_USER@$MASTER_NODE_IP -i $SSH_KEY sudo ./2-master-config-k8s.sh $MASTER_NODE_HOSTNAME $CALICO_VERSION $K9S_VERSION
-ssh -o "StrictHostKeyChecking=no" -t $REMOTE_USER@$MASTER_NODE_IP -i $SSH_KEY sudo ./3-master-get-install-link.sh > 4-node-join-command.sh
-sed -i -e "s/\r//g" 4-node-join-command.sh
+execute_script 0-master-create-user.sh 91.134.105.195 22 ubuntu ./keys/id_rsa
+execute_script 1-master-install-k8s.sh 91.134.105.195 22 ubuntu ./keys/id_rsa $POD_NETWORK_CIDR $KUBERNETES_VERSION
+execute_script 2-master-config-k8s.sh 91.134.105.195 22 ubuntu ./keys/id_rsa $MASTER_NODE_HOSTNAME $CALICO_VERSION $K9S_VERSION
+execute_script 3-master-get-install-link.sh 91.134.105.195 22 ubuntu ./keys/id_rsa > ./core_scripts/node/4-node-join-command.sh
+sed -i -e "s/\r//g" ./core_scripts/node/4-node-join-command.sh
 ###
 ###
 echo "Scripts execution done"; echo
 ###
 ###
-
 run_on_node () {
 
     NODE_IP=$1
@@ -96,23 +99,24 @@ run_on_node () {
     ###
     ###
     echo "  Creating tunnel to worker node ($NODE_IP)..."
-    ssh -i $SSH_KEY -o "StrictHostKeyChecking=no" -M -S /tmp/.node-tunnel -fNT -L 2222:$NODE_IP:22 $REMOTE_USER@$MASTER_NODE_IP
+    open_tunnel $MASTER_NODE_IP $REMOTE_USER $NODE_IP $SSH_KEY
     ###
     echo "  Uploading scripts on worker node using tunnel (localhost:2222)..."
-    scp -P 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o "LogLevel ERROR" -i $SSH_KEY 4-node-install-k8s.sh $REMOTE_USER@localhost:/home/$REMOTE_USER/
-    scp -P 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o "LogLevel ERROR" -i $SSH_KEY 4-node-join-command.sh $REMOTE_USER@localhost:/home/$REMOTE_USER/
+    upload_file node 4-node-install-k8s.sh localhost 2222 ubuntu ./keys/id_rsa 
+    upload_file node 4-node-join-command.sh localhost 2222 ubuntu ./keys/id_rsa 
     ###
     echo "Executing uploaded scripts on worker node using tunnel (localhost:2222)..."
-    ssh -p 2222 -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -o "LogLevel ERROR"  -t $REMOTE_USER@localhost -i $SSH_KEY sudo ./4-node-install-k8s.sh $KUBERNETES_VERSION
-    ssh -p 2222 -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -o "LogLevel ERROR"  -t $REMOTE_USER@localhost -i $SSH_KEY sudo ./4-node-join-command.sh
+    execute_script 4-node-install-k8s.sh localhost 2222 ubuntu ./keys/id_rsa $KUBERNETES_VERSION
+    execute_script 4-node-join-command.sh localhost 2222 ubuntu ./keys/id_rsa
     ###
     echo "  Closing tunnel..."
-    ssh -i $SSH_KEY -S /tmp/.node-tunnel -o StrictHostKeyChecking=no -o "LogLevel ERROR" -O exit $REMOTE_USER@$MASTER_NODE_IP; echo
+    close_tunnel $MASTER_NODE_IP $REMOTE_USER $SSH_KEY
     ###
     ###
     echo "Worker node at ($NODE_IP) joined"; echo
 }
 ###
+### RUN 'run_on_node' ON EACH NODE DEFINED
 ###
 for key in "${!nodes[@]}"
 do run_on_node ${nodes[$key]}
