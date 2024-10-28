@@ -26,12 +26,22 @@ fi
 ### /OPTIONAL REMOVE KNOWN_HOSTS
 ###
 ###
+### ASK FOR DASHBOARD
 _DO_INSTALL_DASHBOARD=1
 read -p "Install k8s dashboard ? (y/n) default:y " X
 if [ "$X" = "n" ]; then
     _DO_INSTALL_DASHBOARD=0
 fi
-
+### /ASK FOR DASHBOARD
+###
+###
+### ASK FOR PORTAINER
+_DO_INSTALL_PORTAINER=1
+read -p "Install portainer ? (y/n) default:y " X
+if [ "$X" = "n" ]; then
+    _DO_INSTALL_PORTAINER=0
+fi
+### /ASK FOR PORTAINER
 ###
 ###
 ### VARS
@@ -44,13 +54,14 @@ K9S_VERSION=v0.32.5/k9s_linux_amd64.deb
 CALICO_VERSION=v3.25.0
 MASTER_NODE_HOSTNAME=cmto-node-0
 DO_INSTALL_DASHBOARD=$_DO_INSTALL_DASHBOARD
+DO_INSTALL_PORTAINER=$_DO_INSTALL_PORTAINER
 ### /VARS
 ###
 ### 
 ### NODES
 declare -A nodes
-# nodes[0]="10.1.3.73"
-# nodes[1]="10.1.1.63"
+nodes[0]="10.1.3.73"
+nodes[1]="10.1.1.63"
 ### /NODES
 ###
 ###
@@ -73,6 +84,7 @@ echo "K9S_VERSION:$K9S_VERSION"
 echo "CALICO_VERSION:$CALICO_VERSION"
 echo "-------------------------"
 echo "INSTALL_DASHBOARD:$DO_INSTALL_DASHBOARD"
+echo "INSTALL_PORTAINER:$DO_INSTALL_PORTAINER"
 echo
 read -p "Confirm VARS ? (y/n) default:y " X
 if [ "$X" = "n" ]; then
@@ -83,18 +95,18 @@ fi
 ###
 echo
 echo "Uploading scripts on master node ($MASTER_NODE_IP)..."
-# upload_file master 0-master-create-user.sh 91.134.105.195 22 ubuntu ./keys/id_rsa 
-# upload_file master 1-master-install-k8s.sh 91.134.105.195 22 ubuntu ./keys/id_rsa 
-# upload_file master 2-master-config-k8s.sh 91.134.105.195 22 ubuntu ./keys/id_rsa 
-# upload_file master 3-master-get-install-link.sh 91.134.105.195 22 ubuntu ./keys/id_rsa 
+upload_file master 0-master-create-user.sh 91.134.105.195 22 ubuntu ./keys/id_rsa 
+upload_file master 1-master-install-k8s.sh 91.134.105.195 22 ubuntu ./keys/id_rsa 
+upload_file master 2-master-config-k8s.sh 91.134.105.195 22 ubuntu ./keys/id_rsa 
+upload_file master 3-master-get-install-link.sh 91.134.105.195 22 ubuntu ./keys/id_rsa 
 echo "Scripts uploading done"; echo
 ###
 ###
 echo "Executing uploaded scripts on master node ($MASTER_NODE_IP)..."
-# execute_script 0-master-create-user.sh 91.134.105.195 22 ubuntu ./keys/id_rsa
-# execute_script 1-master-install-k8s.sh 91.134.105.195 22 ubuntu ./keys/id_rsa $POD_NETWORK_CIDR $KUBERNETES_VERSION
-# execute_script 2-master-config-k8s.sh 91.134.105.195 22 ubuntu ./keys/id_rsa $MASTER_NODE_HOSTNAME $CALICO_VERSION $K9S_VERSION
-# execute_script 3-master-get-install-link.sh 91.134.105.195 22 ubuntu ./keys/id_rsa > ./core_scripts/node/4-node-join-command.sh
+execute_script 0-master-create-user.sh 91.134.105.195 22 ubuntu ./keys/id_rsa
+execute_script 1-master-install-k8s.sh 91.134.105.195 22 ubuntu ./keys/id_rsa $POD_NETWORK_CIDR $KUBERNETES_VERSION
+execute_script 2-master-config-k8s.sh 91.134.105.195 22 ubuntu ./keys/id_rsa $MASTER_NODE_HOSTNAME $CALICO_VERSION $K9S_VERSION
+execute_script 3-master-get-install-link.sh 91.134.105.195 22 ubuntu ./keys/id_rsa > ./core_scripts/node/4-node-join-command.sh
 sed -i -e "s/\r//g" ./core_scripts/node/4-node-join-command.sh
 ###
 ###
@@ -144,11 +156,20 @@ if [ "$DO_INSTALL_DASHBOARD" = 1 ]; then
     upload_file master/dashboard dashboard-secret.yaml 91.134.105.195 22 ubuntu ./keys/id_rsa
     upload_file master/dashboard 5-master-install-dashboard.sh 91.134.105.195 22 ubuntu ./keys/id_rsa
     execute_script 5-master-install-dashboard.sh 91.134.105.195 22 ubuntu ./keys/id_rsa
-    echo "Dashboard installed on master node"
+    echo "Dashboard installed on master node"; echo
 fi
 ###
 ###
-### INSTALL K8S DASHBOARD
+### INSTALL PORTAINER
+###
+###
+if [ "$DO_INSTALL_PORTAINER" = 1 ]; then
+    echo "Installing portainer on master node..."
+    upload_file master/portainer portainer.yaml 91.134.105.195 22 ubuntu ./keys/id_rsa 
+    upload_file master/portainer 6-master-install-portainer.sh 91.134.105.195 22 ubuntu ./keys/id_rsa
+    execute_script 6-master-install-portainer.sh 91.134.105.195 22 ubuntu ./keys/id_rsa
+    echo "Portainer installed on master node"; echo
+fi
 ###
 ###
 echo "done"
