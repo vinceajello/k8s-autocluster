@@ -44,6 +44,15 @@ fi
 ### /ASK FOR PORTAINER
 ###
 ###
+### ASK FOR DOCKER REGISTRY
+_DO_INSTALL_DOCKER_REGISTRY=1
+read -p "Install docker registry ? (y/n) default:y " X
+if [ "$X" = "n" ]; then
+    _DO_INSTALL_DOCKER_REGISTRY=0
+fi
+### /ASK FOR DOCKER REGISTRY
+###
+###
 ### VARS
 SSH_KEY=./keys/id_rsa
 REMOTE_USER=ubuntu
@@ -55,6 +64,8 @@ CALICO_VERSION=v3.25.0
 MASTER_NODE_HOSTNAME=cmto-node-0
 DO_INSTALL_DASHBOARD=$_DO_INSTALL_DASHBOARD
 DO_INSTALL_PORTAINER=$_DO_INSTALL_PORTAINER
+DO_INSTALL_DOCKER_REGISTRY=$_DO_INSTALL_DOCKER_REGISTRY
+DOCKER_REGISTRY_USER="registry-admin"
 ### /VARS
 ###
 ### 
@@ -85,7 +96,11 @@ echo "CALICO_VERSION:$CALICO_VERSION"
 echo "-------------------------"
 echo "INSTALL_DASHBOARD:$DO_INSTALL_DASHBOARD"
 echo "INSTALL_PORTAINER:$DO_INSTALL_PORTAINER"
+echo "INSTALL_DOCKER_REGISTRY:$DO_INSTALL_DOCKER_REGISTRY"
+echo "DOCKER_REGISTRY_USER:$DOCKER_REGISTRY_USER"
 echo
+###
+###
 read -p "Confirm VARS ? (y/n) default:y " X
 if [ "$X" = "n" ]; then
     exit 1
@@ -169,6 +184,21 @@ if [ "$DO_INSTALL_PORTAINER" = 1 ]; then
     upload_file master/portainer 6-master-install-portainer.sh 91.134.105.195 22 ubuntu ./keys/id_rsa
     execute_script 6-master-install-portainer.sh 91.134.105.195 22 ubuntu ./keys/id_rsa
     echo "Portainer installed on master node"; echo
+fi
+###
+###
+### INSTALL DOCKER REGISTRY
+###
+###
+if [ "$DO_INSTALL_DOCKER_REGISTRY" = 1 ]; then
+    echo "Installing docekr registry on master node..."
+    upload_file master/docker-registry registry-pv.yaml 91.134.105.195 22 ubuntu ./keys/id_rsa 
+    upload_file master/docker-registry registry-pvc.yaml 91.134.105.195 22 ubuntu ./keys/id_rsa 
+    upload_file master/docker-registry registry-deploy.yaml 91.134.105.195 22 ubuntu ./keys/id_rsa 
+    upload_file master/docker-registry registry-service.yaml 91.134.105.195 22 ubuntu ./keys/id_rsa 
+    upload_file master/docker-registry 7-master-install-docker-registry.sh 91.134.105.195 22 ubuntu ./keys/id_rsa 
+    execute_script 7-master-install-docker-registry.sh 91.134.105.195 22 ubuntu ./keys/id_rsa $MASTER_NODE_IP $DOCKER_REGISTRY_USER
+    echo "Docker registry installed on master node"; echo
 fi
 ###
 ###

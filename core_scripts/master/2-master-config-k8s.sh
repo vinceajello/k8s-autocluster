@@ -33,6 +33,9 @@ rm ./get_helm.sh
 # remove the taint from master node
 kubectl taint nodes $MASTER_NODE_HOSTNAME node-role.kubernetes.io/control-plane:NoSchedule-
 
+# label the control-plane as master nodeRole
+kubectl label nodes $MASTER_NODE_HOSTNAME nodeRole=master
+
 # adding useful aliases
 echo "alias kca='sudo kubectl get pods -o wide -A; sudo kubectl get services -A; sudo kubectl get nodes'" >> .bashrc
 echo "alias kc='sudo kubectl'" >> .bashrc
