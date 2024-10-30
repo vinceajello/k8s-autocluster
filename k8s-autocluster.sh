@@ -122,7 +122,7 @@ execute_script 0-master-create-user.sh 91.134.105.195 22 ubuntu ./keys/id_rsa
 execute_script 1-master-install-k8s.sh 91.134.105.195 22 ubuntu ./keys/id_rsa $POD_NETWORK_CIDR $KUBERNETES_VERSION
 execute_script 2-master-config-k8s.sh 91.134.105.195 22 ubuntu ./keys/id_rsa $MASTER_NODE_HOSTNAME $CALICO_VERSION $K9S_VERSION
 execute_script 3-master-get-install-link.sh 91.134.105.195 22 ubuntu ./keys/id_rsa > ./core_scripts/node/4-node-join-command.sh
-sed -i -e "s/\r//g" ./core_scripts/node/4-node-join-command.sh
+#sed -i -e "s/\r//g" ./core_scripts/node/4-node-join-command.sh
 ###
 ###
 echo "Scripts execution done"; echo

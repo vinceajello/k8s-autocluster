@@ -29,13 +29,13 @@ spec:
           value: "Registry Realm"
         - name: REGISTRY_AUTH_HTPASSWD_PATH
           value: "/registry-auth/htpasswd"
-        - name: REGISTRY_HTTP_TLS_CERTIFICATE
-          value: "/certs/tls.crt"
-        - name: REGISTRY_HTTP_TLS_KEY
-          value: "/certs/tls.key"
+        #- name: REGISTRY_HTTP_TLS_CERTIFICATE
+        #  value: "/certs/tls.crt"
+        #- name: REGISTRY_HTTP_TLS_KEY
+        #  value: "/certs/tls.key"
         volumeMounts:
-        - name: registry-certs
-          mountPath: "/certs"
+        # - name: registry-certs
+        #  mountPath: "/certs"
         - name: registry-auth
           mountPath: "/registry-auth"
           readOnly: true
@@ -43,9 +43,9 @@ spec:
           mountPath: /var/lib/registry
           subPath: registry
       volumes:
-      - name: registry-certs
-        secret:
-          secretName: registry-cert
+      #- name: registry-certs
+      #  secret:
+      #    secretName: registry-cert
       - name: registry-auth
         secret:
           secretName: registry-auth
