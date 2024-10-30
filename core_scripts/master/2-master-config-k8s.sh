@@ -37,5 +37,5 @@ kubectl taint nodes $MASTER_NODE_HOSTNAME node-role.kubernetes.io/control-plane:
 kubectl label nodes $MASTER_NODE_HOSTNAME nodeRole=master
 
 # adding useful aliases
-echo "alias kca='sudo kubectl get pods -o wide -A; sudo kubectl get services -A; sudo kubectl get nodes'" >> .bashrc
+echo "alias kca='sudo kubectl get deployments -o wide -A; sudo kubectl get pods -o wide -A; sudo kubectl get services -A; sudo kubectl get nodes'" >> .bashrc
 echo "alias kc='sudo kubectl'" >> .bashrc
