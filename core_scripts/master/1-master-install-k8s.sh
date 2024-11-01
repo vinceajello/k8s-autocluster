@@ -46,7 +46,7 @@ echo "OK"
 
 echo
 echo "Installing containerd runtime"
-apt install -y curl gnupg2 software-properties-common apt-transport-https ca-certificates apache2-util
+apt install -y curl gnupg2 software-properties-common apt-transport-https ca-certificates
 apt update
 apt install -y containerd.io
 echo "OK"
