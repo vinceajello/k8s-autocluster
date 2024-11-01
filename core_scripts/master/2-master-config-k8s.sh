@@ -1,8 +1,7 @@
 #!/bin/bash
 
 MASTER_NODE_HOSTNAME=$1
-CALICO_VERSION=$2
-K9S_VERSION=$3
+K9S_VERSION=$2
 
 echo "Configuring k8s Master"
 
@@ -12,9 +11,6 @@ mkdir -p $HOME/.kube
 yes | cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 chown $(id -u):$(id -g) $HOME/.kube/config
 echo "OK"
-
-# install calico
-sudo kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/$CALICO_VERSION/manifests/calico.yaml
 
 # install k9s
 wget https://github.com/derailed/k9s/releases/download/$K9S_VERSION
