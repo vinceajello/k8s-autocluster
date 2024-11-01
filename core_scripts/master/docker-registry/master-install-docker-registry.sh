@@ -7,16 +7,16 @@ echo "Configuring k8s Master"
 
 sudo mkdir /mnt/data
 mkdir -p registry-auth
-# mkdir -p certs
+mkdir -p certs
 
 echo "Generating htpasswd file for user ($REGISTRY_USER)"
 htpasswd -cB registry-auth/htpasswd $REGISTRY_USER
 
-# openssl req -batch -newkey rsa:4096 -nodes -sha256 -keyout certs/registry.key -addext "subjectAltName = IP:$MASTER_NODE_IP" -x509 -days 3650 -out certs/registry.crt
-
+openssl req -newkey rsa:4096 -nodes -sha256 -keyout certs/registry.key -addext "subjectAltName = IP:$MASTER_NODE_IP" -x509 -days 3650 -out certs/registry.crt
+# sudo openssl req -newkey rsa:4096 -nodes -sha256 -keyout certs/registry.key -addext "subjectAltName = IP:$MASTER_NODE_IP" \ -x509 -days 3650 -out certs/registry.crt
 sudo kubectl create namespace docker-registry
 
-# sudo kubectl create secret tls registry-cert --cert=certs/registry.crt --key=certs/registry.key -n docker-registry
+sudo kubectl create secret tls registry-cert --cert=certs/registry.crt --key=certs/registry.key -n docker-registry
 
 sudo kubectl create secret generic registry-auth --from-file=htpasswd=registry-auth/htpasswd -n docker-registry
 
