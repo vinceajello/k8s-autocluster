@@ -2,77 +2,107 @@
 
 KUBERNETES_VERSION=$1
 
-echo "Configuring k8s Worker"
+echo
+echo "Updating the system"
+sudo apt-get update
 
 echo
-echo "Update the system"
-apt update && apt upgrade -y
-apt install socat -y
-echo "OK"
+echo "Upgrading the system"
+sudo apt-get upgrade -y
+
+# echo
+# echo "Adding nodes to host file"
+# echo "10.1.1.154 cmto-node-0" | sudo tee -a /etc/hosts
+# echo "10.1.3.73 cmto-node-1" | sudo tee -a /etc/hosts
+# echo "10.1.1.63 cmto-node-2" | sudo tee -a /etc/hosts
 
 echo
-echo "Disable swap"
-swapoff -a
-sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
-echo "OK"
+echo "Disabling swap"
+sudo swapoff -a
+sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
 
 echo
-echo "Adding kernel modules"
-tee /etc/modules-load.d/containerd.conf <<EOF
+echo "Adding modules"
+cat <<EOF | sudo tee /etc/modules-load.d/containerd.conf
 overlay
 br_netfilter
 EOF
-modprobe overlay
-modprobe br_netfilter
 
-tee /etc/sysctl.d/kubernetes.conf <<EOF
-net.bridge.bridge-nf-call-ip6tables = 1
-net.bridge.bridge-nf-call-iptables = 1
+echo
+echo "Loading new modules"
+sudo modprobe overlay
+sudo modprobe br_netfilter
+
+echo
+echo "K8s network configuration"
+cat <<EOF | sudo tee /etc/sysctl.d/99-kubernetes-cri.conf
+net.bridge.bridge-nf-call-iptables=1
+net.bridge.bridge-nf-call-ip6tables=1
 net.ipv4.ip_forward = 1
 EOF
-echo "OK"
 
 echo
-echo "Reloading changes"
-sysctl --system
-echo "OK"
+echo "Network configuration"
+echo "net.ipv4.ip_forward=1" | sudo tee -a /etc/sysctl.conf 
 
 echo
-echo "Adding docker repositoy"
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmour --yes -o /etc/apt/trusted.gpg.d/docker.gpg
-add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" -y
-echo "OK"
+echo "Reloading configurations"
+sudo sysctl --system
 
 echo
-echo "Installing containerd runtime"
-apt install -y curl gnupg2 software-properties-common apt-transport-https ca-certificates
-apt update
-apt install -y containerd.io
-echo "OK"
+echo "Installing requirements"
+sudo apt-get install -y curl ca-certificates gnupg
+
+echo
+echo "Adding docker repository"
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+echo
+echo "Updating the system"
+sudo apt-get update
+
+echo
+echo "Installing containerd"
+sudo apt-get install -y containerd.io
 
 echo
 echo "Configuring containerd"
-containerd config default | tee /etc/containerd/config.toml >/dev/null 2>&1
-sed -i 's/SystemdCgroup \= false/SystemdCgroup \= true/g' /etc/containerd/config.toml
-echo "OK"
+sudo mkdir -p /etc/containerd
+sudo containerd config default | sudo tee /etc/containerd/config.toml
 
 echo
-echo "Enabling containerd"
-systemctl restart containerd
-systemctl enable containerd
-"OK"
+echo "Restarting containerd"
+sudo systemctl restart containerd
 
 echo
-echo "Adding k8s repository"
-apt-get install -y apt-transport-https ca-certificates curl gpg
-curl -fsSL https://pkgs.k8s.io/core:/stable:$KUBERNETES_VERSION/Release.key | gpg --dearmor --yes -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:$KUBERNETES_VERSION/ /" | tee /etc/apt/sources.list.d/kubernetes.list
-echo "OK"
+echo "Adding kubernetes repository"
+sudo mkdir /etc/apt/keyrings
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v$KUBERNETES_VERSION/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$KUBERNETES_VERSION/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
 
 echo
-echo "Installing k8s "
-apt-get update
-apt-get install -y kubelet kubeadm kubectl
-apt-mark hold kubelet kubeadm kubectl
-systemctl enable --now kubelet
-echo "OK"
+echo "Updating the system"
+sudo apt-get update
+
+echo
+echo "Installing k8s components"
+sudo apt-get install -y kubelet kubeadm kubectl
+
+echo
+echo "Stop updrades on k8s components"
+sudo apt-mark hold kubelet kubeadm kubectl
+
+echo
+echo "Restarting kubelet"
+sudo systemctl restart kubelet
+
+echo
+echo "Enabling kubelet"
+sudo systemctl enable kubelet
+
+echo
+echo "Reloading systemd"
+sudo sysctl --system

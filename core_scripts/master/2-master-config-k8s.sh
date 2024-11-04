@@ -2,36 +2,47 @@
 
 MASTER_NODE_HOSTNAME=$1
 K9S_VERSION=$2
+CALICO_VERSION=$3
+CIDR=$4
 
 echo "Configuring k8s Master"
 
 echo
 echo "Adding k8s to PATHs"
 mkdir -p $HOME/.kube
-yes | cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-chown $(id -u):$(id -g) $HOME/.kube/config
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
 echo "OK"
 
-# install k9s
+echo
+echo "Installing k9s control panel"
 wget https://github.com/derailed/k9s/releases/download/$K9S_VERSION
-sudo chown _apt /var/lib/update-notifier/package-data-downloads/partial/
-sudo chown -Rv _apt:root /var/cache/apt/archives/partial/
-sudo chmod -Rv 700 /var/cache/apt/archives/partial/
-apt install ./k9s_linux_amd64.deb
+sudo apt install ./k9s_linux_amd64.deb
 rm ./k9s_linux_amd64.deb
 
-# install helm
+echo
+echo "Installing helm packet manager"
 curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
 chmod 700 get_helm.sh
 ./get_helm.sh
 rm ./get_helm.sh
 
-# remove the taint from master node
+echo
+echo "Removing taint from control-plane node"
 kubectl taint nodes $MASTER_NODE_HOSTNAME node-role.kubernetes.io/control-plane:NoSchedule-
 
-# label the control-plane as master nodeRole
+echo
+echo "Labelling control-plane node as master"
 kubectl label nodes $MASTER_NODE_HOSTNAME nodeRole=master
 
-# adding useful aliases
-echo "alias kca='sudo kubectl get deployments -o wide -A; sudo kubectl get pods -o wide -A; sudo kubectl get services -A; sudo kubectl get nodes'" >> .bashrc
-echo "alias kc='sudo kubectl'" >> .bashrc
+echo
+echo "Installing Calico"
+kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/$CALICO_VERSION/manifests/tigera-operator.yaml
+curl https://raw.githubusercontent.com/projectcalico/calico/$CALICO_VERSION/manifests/custom-resources.yaml -O
+sed -i "s|192\.168\.0\.0/16|${CIDR}|g" custom-resources.yaml
+sed -i 's/VXLANCrossSubnet/VXLAN/g' custom-resources.yaml
+kubectl create -f custom-resources.yaml
+
+echo
+echo "Adding useful aliases"
+echo "alias kca='kubectl get deployments -o wide -A; kubectl get pods -o wide -A; kubectl get services -A; kubectl get nodes'" >> .bashrc

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash 
 
 source $(dirname $0)/bash_utils/upload.sh
 source $(dirname $0)/bash_utils/execute.sh
@@ -58,10 +58,11 @@ SSH_KEY=./keys/id_rsa
 REMOTE_USER=ubuntu
 MASTER_NODE_IP=91.134.105.195
 POD_NETWORK_CIDR=192.168.0.0/16
-KUBERNETES_VERSION=/v1.30/deb
+KUBERNETES_VERSION=1.30
 K9S_VERSION=v0.32.5/k9s_linux_amd64.deb
-CALICO_VERSION=v3.25.0
+CALICO_VERSION=v3.28.1
 MASTER_NODE_HOSTNAME=cmto-node-0
+MASTER_NODE_PRIVATE_IP=10.1.1.154
 DO_INSTALL_DASHBOARD=$_DO_INSTALL_DASHBOARD
 DO_INSTALL_PORTAINER=$_DO_INSTALL_PORTAINER
 DO_INSTALL_DOCKER_REGISTRY=$_DO_INSTALL_DOCKER_REGISTRY
@@ -71,8 +72,8 @@ DOCKER_REGISTRY_USER="registry-admin"
 ### 
 ### NODES
 declare -A nodes
-nodes[0]="10.1.3.73"
-nodes[1]="10.1.1.63"
+nodes[0]="10.1.3.73:cmto-node-1"
+nodes[1]="10.1.1.63:cmto-node-2"
 ### /NODES
 ###
 ###
@@ -109,28 +110,55 @@ fi
 ###
 ###
 echo
+echo "Generating networking configuration script"
+###
+###
+build_network_conf_command () {
+    SPLIT=(${1//:/ })
+    NODE_IP=${SPLIT[0]}
+    HOSTNAME=${SPLIT[1]}
+    echo "echo "\"${NODE_IP} ${HOSTNAME}\"" | sudo tee -a /etc/hosts" | tee -a ./core_scripts/master/k8s-networking-configuration.sh
+}
+###
+###
+touch ./core_scripts/master/k8s-networking-configuration.sh
+> ./core_scripts/master/k8s-networking-configuration.sh
+###
+###
+echo "echo "\"${MASTER_NODE_PRIVATE_IP} ${MASTER_NODE_HOSTNAME}\"" | sudo tee -a /etc/hosts" | tee -a ./core_scripts/master/k8s-networking-configuration.sh
+for key in "${!nodes[@]}"
+do build_network_conf_command ${nodes[$key]}
+done
+cp ./core_scripts/master/k8s-networking-configuration.sh ./core_scripts/node/k8s-networking-configuration.sh
+echo "Configuration script generated"; echo
+###
+###
+###
+echo
 echo "Uploading scripts on master node ($MASTER_NODE_IP)..."
-upload_file master 0-master-create-user.sh 91.134.105.195 22 ubuntu ./keys/id_rsa 
-upload_file master 1-master-install-k8s.sh 91.134.105.195 22 ubuntu ./keys/id_rsa 
-upload_file master 2-master-config-k8s.sh 91.134.105.195 22 ubuntu ./keys/id_rsa 
-upload_file master 3-master-get-install-link.sh 91.134.105.195 22 ubuntu ./keys/id_rsa 
+upload_file master k8s-networking-configuration.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
+upload_file master 0-master-create-user.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
+upload_file master 1-master-install-k8s.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
+upload_file master 2-master-config-k8s.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
+upload_file master 3-master-get-install-link.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
 echo "Scripts uploading done"; echo
 ###
 ###
 echo "Executing uploaded scripts on master node ($MASTER_NODE_IP)..."
-execute_script 0-master-create-user.sh 91.134.105.195 22 ubuntu ./keys/id_rsa
-execute_script 1-master-install-k8s.sh 91.134.105.195 22 ubuntu ./keys/id_rsa $POD_NETWORK_CIDR $KUBERNETES_VERSION
-execute_script 2-master-config-k8s.sh 91.134.105.195 22 ubuntu ./keys/id_rsa $MASTER_NODE_HOSTNAME $CALICO_VERSION $K9S_VERSION
-execute_script 3-master-get-install-link.sh 91.134.105.195 22 ubuntu ./keys/id_rsa > ./core_scripts/node/4-node-join-command.sh
-#sed -i -e "s/\r//g" ./core_scripts/node/4-node-join-command.sh
-###
-###
+execute_script ./k8s-networking-configuration.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa
+execute_script ./0-master-create-user.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa
+execute_script ./1-master-install-k8s.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa $POD_NETWORK_CIDR $KUBERNETES_VERSION
+execute_script ./2-master-config-k8s.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa $MASTER_NODE_HOSTNAME $K9S_VERSION $CALICO_VERSION $POD_NETWORK_CIDR
+execute_script ./3-master-get-install-link.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa > ./core_scripts/node/4-node-join-command.sh
+sed -i -e "s/\r//g" ./core_scripts/node/4-node-join-command.sh
 echo "Scripts execution done"; echo
 ###
 ###
 run_on_node () {
 
-    NODE_IP=$1
+    SPLIT=(${1//:/ })
+    NODE_IP=${SPLIT[0]}
+    HOSTNAME=${SPLIT[1]}
     ###
     ###
     echo "Configuring worker node at ($NODE_IP)..."; echo
@@ -140,18 +168,19 @@ run_on_node () {
     open_tunnel $MASTER_NODE_IP $REMOTE_USER $NODE_IP $SSH_KEY
     ###
     echo "  Uploading scripts on worker node using tunnel (localhost:2222)..."
+    upload_file node k8s-networking-configuration.sh localhost 2222 ubuntu ./keys/id_rsa 
     upload_file node 4-node-install-k8s.sh localhost 2222 ubuntu ./keys/id_rsa 
     upload_file node 4-node-join-command.sh localhost 2222 ubuntu ./keys/id_rsa 
     ###
     echo "Executing uploaded scripts on worker node using tunnel (localhost:2222)..."
-    execute_script 4-node-install-k8s.sh localhost 2222 ubuntu ./keys/id_rsa $KUBERNETES_VERSION
-    execute_script 4-node-join-command.sh localhost 2222 ubuntu ./keys/id_rsa
+    execute_script ./k8s-networking-configuration.sh localhost 2222 ubuntu ./keys/id_rsa
+    execute_script ./4-node-install-k8s.sh localhost 2222 ubuntu ./keys/id_rsa $KUBERNETES_VERSION
+    execute_script "sudo ./4-node-join-command.sh" localhost 2222 ubuntu ./keys/id_rsa
     ###
     echo "  Closing tunnel..."
     close_tunnel $MASTER_NODE_IP $REMOTE_USER $SSH_KEY
     ###
     ###
-    echo "Worker node at ($NODE_IP) joined"; echo
 }
 ###
 ### RUN 'run_on_node' ON EACH NODE DEFINED
@@ -166,11 +195,11 @@ done
 ###
 if [ "$DO_INSTALL_DASHBOARD" = 1 ]; then
     echo "Installing k8s dashboard on master node..."
-    upload_file master/dashboard dashboard-user.yaml 91.134.105.195 22 ubuntu ./keys/id_rsa 
-    upload_file master/dashboard dashboard-role.yaml 91.134.105.195 22 ubuntu ./keys/id_rsa 
-    upload_file master/dashboard dashboard-secret.yaml 91.134.105.195 22 ubuntu ./keys/id_rsa
-    upload_file master/dashboard 5-master-install-dashboard.sh 91.134.105.195 22 ubuntu ./keys/id_rsa
-    execute_script 5-master-install-dashboard.sh 91.134.105.195 22 ubuntu ./keys/id_rsa
+    upload_file master/dashboard dashboard-user.yaml $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
+    upload_file master/dashboard dashboard-role.yaml $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
+    upload_file master/dashboard dashboard-secret.yaml $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa
+    upload_file master/dashboard master-install-dashboard.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa
+    execute_script ./master-install-dashboard.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa
     echo "Dashboard installed on master node"; echo
 fi
 ###
@@ -180,9 +209,9 @@ fi
 ###
 if [ "$DO_INSTALL_PORTAINER" = 1 ]; then
     echo "Installing portainer on master node..."
-    upload_file master/portainer portainer.yaml 91.134.105.195 22 ubuntu ./keys/id_rsa 
-    upload_file master/portainer 6-master-install-portainer.sh 91.134.105.195 22 ubuntu ./keys/id_rsa
-    execute_script 6-master-install-portainer.sh 91.134.105.195 22 ubuntu ./keys/id_rsa
+    upload_file master/portainer portainer.yaml $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
+    upload_file master/portainer master-install-portainer.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa
+    execute_script ./master-install-portainer.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa
     echo "Portainer installed on master node"; echo
 fi
 ###
@@ -192,12 +221,12 @@ fi
 ###
 if [ "$DO_INSTALL_DOCKER_REGISTRY" = 1 ]; then
     echo "Installing docekr registry on master node..."
-    upload_file master/docker-registry registry-pv.yaml 91.134.105.195 22 ubuntu ./keys/id_rsa 
-    upload_file master/docker-registry registry-pvc.yaml 91.134.105.195 22 ubuntu ./keys/id_rsa 
-    upload_file master/docker-registry registry-deploy.yaml 91.134.105.195 22 ubuntu ./keys/id_rsa 
-    upload_file master/docker-registry registry-service.yaml 91.134.105.195 22 ubuntu ./keys/id_rsa 
-    upload_file master/docker-registry 7-master-install-docker-registry.sh 91.134.105.195 22 ubuntu ./keys/id_rsa 
-    execute_script 7-master-install-docker-registry.sh 91.134.105.195 22 ubuntu ./keys/id_rsa $MASTER_NODE_IP $DOCKER_REGISTRY_USER
+    upload_file master/docker-registry registry-pv.yaml $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
+    upload_file master/docker-registry registry-pvc.yaml $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
+    upload_file master/docker-registry registry-deploy.yaml $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
+    upload_file master/docker-registry registry-service.yaml $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
+    upload_file master/docker-registry master-install-docker-registry.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
+    execute_script ./master-install-docker-registry.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa $MASTER_NODE_IP $DOCKER_REGISTRY_USER
     echo "Docker registry installed on master node"; echo
 fi
 ###
