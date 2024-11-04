@@ -1,0 +1,6 @@
+
+DNS Debug guide
+https://kubernetes.io/docs/tasks/administer-cluster/dns-debugging-resolution/
+
+Edit ippool
+kubectl edit ippool default-ipv4-ippool
