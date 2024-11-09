@@ -44,15 +44,6 @@ fi
 ### /ASK FOR PORTAINER
 ###
 ###
-### ASK FOR DOCKER REGISTRY
-_DO_INSTALL_DOCKER_REGISTRY=1
-read -p "Install docker registry ? (y/n) default:y " X
-if [ "$X" = "n" ]; then
-    _DO_INSTALL_DOCKER_REGISTRY=0
-fi
-### /ASK FOR DOCKER REGISTRY
-###
-###
 ### VARS
 SSH_KEY=./keys/id_rsa
 REMOTE_USER=ubuntu
@@ -65,8 +56,6 @@ MASTER_NODE_HOSTNAME=cmto-node-0
 MASTER_NODE_PRIVATE_IP=10.1.1.154
 DO_INSTALL_DASHBOARD=$_DO_INSTALL_DASHBOARD
 DO_INSTALL_PORTAINER=$_DO_INSTALL_PORTAINER
-DO_INSTALL_DOCKER_REGISTRY=$_DO_INSTALL_DOCKER_REGISTRY
-DOCKER_REGISTRY_USER="registry-admin"
 ### /VARS
 ###
 ### 
@@ -97,8 +86,6 @@ echo "CALICO_VERSION:$CALICO_VERSION"
 echo "-------------------------"
 echo "INSTALL_DASHBOARD:$DO_INSTALL_DASHBOARD"
 echo "INSTALL_PORTAINER:$DO_INSTALL_PORTAINER"
-echo "INSTALL_DOCKER_REGISTRY:$DO_INSTALL_DOCKER_REGISTRY"
-echo "DOCKER_REGISTRY_USER:$DOCKER_REGISTRY_USER"
 echo
 ###
 ###
@@ -216,19 +203,20 @@ if [ "$DO_INSTALL_PORTAINER" = 1 ]; then
 fi
 ###
 ###
-### INSTALL DOCKER REGISTRY
+### INSTALL NGINX PRIVATE
 ###
 ###
-if [ "$DO_INSTALL_DOCKER_REGISTRY" = 1 ]; then
-    echo "Installing docekr registry on master node..."
-    upload_file master/docker-registry registry-pv.yaml $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
-    upload_file master/docker-registry registry-pvc.yaml $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
-    upload_file master/docker-registry registry-deploy.yaml $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
-    upload_file master/docker-registry registry-service.yaml $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
-    upload_file master/docker-registry master-install-docker-registry.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
-    execute_script ./master-install-docker-registry.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa $MASTER_NODE_IP $DOCKER_REGISTRY_USER
-    echo "Docker registry installed on master node"; echo
+if [ "$DO_INSTALL_DASHBOARD" = 1 ] || [ "$DO_INSTALL_PORTAINER" = 1 ]; then
+    echo "Installing nginx private proxy on master node..."
+    upload_file master/nginx-private nginx-private.yaml $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
+    upload_file master/nginx-private master-install-nginx-private.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
+    execute_script ./master-install-nginx-private.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa
 fi
-###
+
+
+
+
+
+
 ###
 echo "done"
