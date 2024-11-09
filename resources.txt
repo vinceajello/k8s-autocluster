@@ -4,3 +4,6 @@ https://kubernetes.io/docs/tasks/administer-cluster/dns-debugging-resolution/
 
 Edit ippool
 kubectl edit ippool default-ipv4-ippool
+
+Generate dashboard access token
+kubectl -n kubernetes-dashboard create token admin-user
