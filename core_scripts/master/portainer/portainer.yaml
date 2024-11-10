@@ -77,7 +77,7 @@ metadata:
     app.kubernetes.io/instance: portainer
     app.kubernetes.io/version: "ce-latest-ee-2.22.0"
 spec:
-  type: NodePort
+  type: ClusterIP
   ports:
     - port: 9000
       targetPort: 9000
