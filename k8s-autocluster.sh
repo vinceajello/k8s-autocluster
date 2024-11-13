@@ -47,13 +47,17 @@ fi
 ### VARS
 SSH_KEY=./keys/id_rsa
 REMOTE_USER=ubuntu
-MASTER_NODE_IP=91.134.105.195
-POD_NETWORK_CIDR=192.168.0.0/16
 KUBERNETES_VERSION=1.30
-K9S_VERSION=v0.32.5/k9s_linux_amd64.deb
-CALICO_VERSION=v3.28.1
+MASTER_NODE_IP=91.134.105.195
 MASTER_NODE_HOSTNAME=cmto-node-0
 MASTER_NODE_PRIVATE_IP=10.1.1.154
+POD_NETWORK_CIDR=192.168.0.0/16
+INGRESS_HTTP_PORT=30080
+INGRESS_HTTPS_PORT=30443
+K9S_VERSION=v0.32.5/k9s_linux_amd64.deb
+CALICO_VERSION=v3.28.1
+###
+###
 DO_INSTALL_DASHBOARD=$_DO_INSTALL_DASHBOARD
 DO_INSTALL_PORTAINER=$_DO_INSTALL_PORTAINER
 ### /VARS
@@ -127,7 +131,9 @@ upload_file master k8s-networking-configuration.sh $MASTER_NODE_IP 22 ubuntu ./k
 upload_file master 0-master-create-user.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
 upload_file master 1-master-install-k8s.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
 upload_file master 2-master-config-k8s.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
-upload_file master 3-master-get-install-link.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
+upload_file master 3-master-get-install-link.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa
+upload_file master/ingress master-install-nginx-ingress.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa
+upload_file master/ingress nginx-ingress-controller.yaml $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa
 echo "Scripts uploading done"; echo
 ###
 ###
@@ -136,6 +142,7 @@ execute_script ./k8s-networking-configuration.sh $MASTER_NODE_IP 22 ubuntu ./key
 execute_script ./0-master-create-user.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa
 execute_script ./1-master-install-k8s.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa $POD_NETWORK_CIDR $KUBERNETES_VERSION
 execute_script ./2-master-config-k8s.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa $MASTER_NODE_HOSTNAME $K9S_VERSION $CALICO_VERSION $POD_NETWORK_CIDR
+execute_script ./master-install-nginx-ingress.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa $INGRESS_HTTP_PORT $INGRESS_HTTPS_PORT
 execute_script ./3-master-get-install-link.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa > ./core_scripts/node/4-node-join-command.sh
 sed -i -e "s/\r//g" ./core_scripts/node/4-node-join-command.sh
 echo "Scripts execution done"; echo
@@ -214,8 +221,11 @@ if [ "$DO_INSTALL_DASHBOARD" = 1 ] || [ "$DO_INSTALL_PORTAINER" = 1 ]; then
 fi
 
 
-
-
+###
+###
+### TODO: LABEL NODES
+###
+###
 
 
 ###
