@@ -1,4 +1,7 @@
 keys
 4-node-join-command.sh
 k8s-networking-configuration.sh
+k8s-networking-configuration-add.sh
+k8s-networking-configuration-new.sh
 tests
+examples
