@@ -54,6 +54,7 @@ MASTER_NODE_PRIVATE_IP=10.1.1.154
 POD_NETWORK_CIDR=192.168.0.0/16
 INGRESS_HTTP_PORT=30080
 INGRESS_HTTPS_PORT=30443
+CERTBOT_EMAIL=vince.ajello@gmail.com
 K9S_VERSION=v0.32.5/k9s_linux_amd64.deb
 CALICO_VERSION=v3.28.1
 ###
@@ -77,7 +78,12 @@ echo "REMOTE_USER:$REMOTE_USER"
 echo "-------------------------"
 echo "POD_NETWORK_CIDR:$POD_NETWORK_CIDR"
 echo "MASTER_NODE_IP:$MASTER_NODE_IP"
+echo "MASTER_NODE_PRIVATE_IP:$MASTER_NODE_PRIVATE_IP"
 echo "MASTER_NODE_HOSTNAME:$MASTER_NODE_HOSTNAME"
+echo "-------------------------"
+echo "INGRESS_HTTP_PORT:$INGRESS_HTTP_PORT"
+echo "INGRESS_HTTPS_PORT:$INGRESS_HTTPS_PORT"
+echo "CERTBOT_EMAIL:$CERTBOT_EMAIL"
 echo "-------------------------"
 echo "WORKER NODES:"
 for key in "${!nodes[@]}"
@@ -134,6 +140,8 @@ upload_file master 2-master-config-k8s.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rs
 upload_file master 3-master-get-install-link.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa
 upload_file master/ingress master-install-nginx-ingress.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa
 upload_file master/ingress nginx-ingress-controller.yaml $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa
+upload_file master/cert-manager master-install-cert-manager.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa
+upload_file master/cert-manager cert-manager-cluster-issuer.yaml $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa
 echo "Scripts uploading done"; echo
 ###
 ###
@@ -143,6 +151,7 @@ execute_script ./0-master-create-user.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa
 execute_script ./1-master-install-k8s.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa $POD_NETWORK_CIDR $KUBERNETES_VERSION
 execute_script ./2-master-config-k8s.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa $MASTER_NODE_HOSTNAME $K9S_VERSION $CALICO_VERSION $POD_NETWORK_CIDR
 execute_script ./master-install-nginx-ingress.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa $INGRESS_HTTP_PORT $INGRESS_HTTPS_PORT
+execute_script ./master-install-cert-manager.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa $CERTBOT_EMAIL 
 execute_script ./3-master-get-install-link.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa > ./core_scripts/node/4-node-join-command.sh
 sed -i -e "s/\r//g" ./core_scripts/node/4-node-join-command.sh
 echo "Scripts execution done"; echo
@@ -219,14 +228,5 @@ if [ "$DO_INSTALL_DASHBOARD" = 1 ] || [ "$DO_INSTALL_PORTAINER" = 1 ]; then
     upload_file master/nginx-private master-install-nginx-private.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
     execute_script ./master-install-nginx-private.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa
 fi
-
-
-###
-###
-### TODO: LABEL NODES
-###
-###
-
-
 ###
 echo "done"
