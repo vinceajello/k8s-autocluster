@@ -6,8 +6,8 @@ source $(dirname $0)/bash_utils/tunnel.sh
 
 echo
 echo "::: K8s Autocluster ::: 0.1 :::"
-
 echo
+
 ###
 ###
 ### RUN AS ROOT ROOT
@@ -67,7 +67,7 @@ DO_INSTALL_PORTAINER=$_DO_INSTALL_PORTAINER
 ### NODES
 declare -A nodes
 nodes[0]="10.1.3.73:cmto-node-1"
-nodes[1]="10.1.1.63:cmto-node-2"
+# nodes[1]="10.1.1.63:cmto-node-2"
 ### /NODES
 ###
 ###
@@ -157,6 +157,7 @@ sed -i -e "s/\r//g" ./core_scripts/node/4-node-join-command.sh
 echo "Scripts execution done"; echo
 ###
 ###
+###
 run_on_node () {
 
     SPLIT=(${1//:/ })
@@ -228,5 +229,15 @@ if [ "$DO_INSTALL_DASHBOARD" = 1 ] || [ "$DO_INSTALL_PORTAINER" = 1 ]; then
     upload_file master/nginx-private master-install-nginx-private.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa 
     execute_script ./master-install-nginx-private.sh $MASTER_NODE_IP 22 ubuntu ./keys/id_rsa
 fi
+###
+###
+### CLEANUP
+###
+###
+echo "Cleanup..."
+rm ./core_scripts/node/4-node-join-command.sh 2> /dev/null
+rm ./core_scripts/node/k8s-networking-configuration.sh 2> /dev/null
+rm ./core_scripts/master/k8s-networking-configuration.sh 2> /dev/null
+###
 ###
 echo "done"
