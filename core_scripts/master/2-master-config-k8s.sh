@@ -45,4 +45,4 @@ kubectl create -f custom-resources.yaml
 
 echo
 echo "Adding useful aliases"
-echo "alias kca='kubectl get deployments -o wide -A; kubectl get pods -o wide -A; kubectl get services -A; kubectl get nodes'" >> .bashrc
+echo "alias kca='kubectl get deployments -A; kubectl get pods -o wide -A; kubectl get services -A; kubectl get nodes'" >> .bashrc
